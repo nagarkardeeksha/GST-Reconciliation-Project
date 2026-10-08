@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GST Reconciliation Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        html, body { width: 100%; }
+        thead th { position: sticky; top: 0; z-index: 1; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col w-full">
+
+    <!-- Navigation -->
+    <nav class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50 w-full">
+        <div class="w-full px-4 sm:px-6 lg:px-10">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-2">
+                    <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span class="text-xl font-bold text-slate-900">GST Reconciler</span>
+                </div>
+                <div id="navRight" class="hidden items-center gap-3">
+                    <span id="batchChip" class="hidden text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full px-3 py-1"></span>
+                    <button id="newReconBtn" class="hidden text-sm font-semibold text-indigo-600 hover:text-indigo-800">+ New Reconciliation</button>
+                    <span id="userChip" class="text-sm text-slate-500"></span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Global error banner -->
+    <div id="errorBanner" class="hidden w-full px-4 sm:px-6 lg:px-10 pt-4">
+        <div class="bg-rose-50 border border-rose-200 text-rose-800 rounded-lg px-4 py-3 text-sm flex justify-between items-start gap-4">
+            <div>
+                <p id="errorMessage" class="font-semibold"></p>
+                <pre id="errorDetails" class="hidden mt-2 text-xs whitespace-pre-wrap break-words text-rose-700"></pre>
+            </div>
+            <button id="errorClose" class="text-rose-500 hover:text-rose-700 font-bold text-lg leading-none">&times;</button>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="hidden fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-sm px-4 py-3 rounded-lg shadow-lg"></div>
+
+    <main class="flex-grow w-full px-4 sm:px-6 lg:px-10 py-8">
+
+        <!-- ================= LOGIN ================= -->
+        <section id="loginView" class="hidden">
+            <div class="max-w-md mx-auto mt-10 bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+                <h1 class="text-2xl font-bold text-slate-900">Sign in</h1>
+                <p class="text-slate-500 text-sm mt-1 mb-6">Login to start a GST reconciliation.</p>
+                <form id="loginForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1" for="username">Username</label>
+                        <input id="username" type="text" autocomplete="username" required class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1" for="password">Password</label>
+                        <input id="password" type="password" autocomplete="current-password" required class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <p id="loginError" class="hidden text-sm text-rose-600"></p>
+                    <button id="loginBtn" type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg shadow-sm transition-colors disabled:opacity-60">Login</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- ================= APP ================= -->
+        <section id="appView" class="hidden w-full">
+
+            <!-- Header -->
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-slate-900">New Reconciliation</h1>
+                <p class="text-slate-500 mt-1">Upload your Purchase Register and GSTR-2B files to identify mismatches.</p>
+            </div>
+
+            <!-- Upload Section -->
+            <form id="reconciliationForm" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8 w-full">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                    <!-- Purchase File Upload -->
+                    <div class="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-indigo-500 hover:bg-indigo-50 transition-colors">
+                        <label for="purchaseFile" class="cursor-pointer flex flex-col items-center">
+                            <svg class="w-12 h-12 text-slate-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                            <span class="text-sm font-semibold text-slate-700">Upload Purchase_Details.xlsx</span>
+                            <span class="text-xs text-slate-500 mt-1">XLSX, XLS up to 10MB</span>
+                            <input type="file" id="purchaseFile" name="purchaseFile" accept=".xlsx, .xls" class="hidden" required>
+                        </label>
+                        <div id="purchaseFileName" class="text-sm text-indigo-600 font-medium mt-2 hidden"></div>
+                    </div>
+
+                    <!-- 2B File Upload -->
+                    <div class="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-indigo-500 hover:bg-indigo-50 transition-colors">
+                        <label for="twoBFile" class="cursor-pointer flex flex-col items-center">
+                            <svg class="w-12 h-12 text-slate-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            <span class="text-sm font-semibold text-slate-700">Upload 2B_file.xlsx</span>
+                            <span class="text-xs text-slate-500 mt-1">XLSX, XLS up to 10MB</span>
+                            <input type="file" id="twoBFile" name="twoBFile" accept=".xlsx, .xls" class="hidden" required>
+                        </label>
+                        <div id="twoBFileName" class="text-sm text-indigo-600 font-medium mt-2 hidden"></div>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div class="flex items-center gap-2 text-sm">
+                        <span class="text-slate-500">Already have a batch?</span>
+                        <input id="openBatchInput" type="text" placeholder="BATCH_2026..." class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button type="button" id="openBatchBtn" class="text-indigo-600 hover:text-indigo-800 font-semibold">Open</button>
+                    </div>
+                    <button type="submit" id="submitBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-6 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
+                        <span>Run Reconciliation</span>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Loading State -->
+            <div id="loadingState" class="hidden flex-col items-center justify-center py-12">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
+                <p id="loadingText" class="text-slate-600 font-medium">Processing your files...</p>
+            </div>
+
+            <!-- Results Section -->
+            <div id="resultsSection" class="hidden space-y-6 w-full">
+
+                <!-- Summary Cards (click to filter) -->
+                <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4" id="summaryCards">
+                    <button data-status="" class="card text-left bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:ring-2 hover:ring-slate-300 transition">
+                        <p class="text-sm text-slate-500 font-medium">Total Invoices</p>
+                        <p class="text-2xl font-bold text-slate-900 mt-1" id="val-total">-</p>
+                    </button>
+                    <button data-status="Matched" class="card text-left bg-emerald-50 p-5 rounded-xl border border-emerald-100 shadow-sm hover:ring-2 hover:ring-emerald-300 transition">
+                        <p class="text-sm text-emerald-600 font-medium">Perfect Matches</p>
+                        <p class="text-2xl font-bold text-emerald-700 mt-1" id="val-Matched">-</p>
+                    </button>
+                    <button data-status="Mismatch" class="card text-left bg-rose-50 p-5 rounded-xl border border-rose-100 shadow-sm hover:ring-2 hover:ring-rose-300 transition">
+                        <p class="text-sm text-rose-600 font-medium">Mismatches</p>
+                        <p class="text-2xl font-bold text-rose-700 mt-1" id="val-Mismatch">-</p>
+                    </button>
+                    <button data-status="Amount Mismatch" class="card text-left bg-orange-50 p-5 rounded-xl border border-orange-100 shadow-sm hover:ring-2 hover:ring-orange-300 transition">
+                        <p class="text-sm text-orange-600 font-medium">Amount Mismatch</p>
+                        <p class="text-2xl font-bold text-orange-700 mt-1" id="val-Amount Mismatch">-</p>
+                    </button>
+                    <button data-status="Purchase Only" class="card text-left bg-amber-50 p-5 rounded-xl border border-amber-100 shadow-sm hover:ring-2 hover:ring-amber-300 transition">
+                        <p class="text-sm text-amber-600 font-medium">Missing in 2B</p>
+                        <p class="text-2xl font-bold text-amber-700 mt-1" id="val-Purchase Only">-</p>
+                    </button>
+                    <button data-status="2B Only" class="card text-left bg-violet-50 p-5 rounded-xl border border-violet-100 shadow-sm hover:ring-2 hover:ring-violet-300 transition">
+                        <p class="text-sm text-violet-600 font-medium">Missing in Purchase</p>
+                        <p class="text-2xl font-bold text-violet-700 mt-1" id="val-2B Only">-</p>
+                    </button>
+                </div>
+
+                <!-- Data Table -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden w-full">
+                    <div class="px-6 py-4 border-b border-slate-200 flex flex-col gap-4">
+                        <div class="flex flex-wrap justify-between items-center gap-3">
+                            <h2 class="text-lg font-semibold text-slate-800">Reconciliation Results</h2>
+                            <div class="flex items-center gap-4">
+                                <div id="bulkBar" class="hidden items-center gap-2">
+                                    <span class="text-sm text-slate-600"><span id="selCount">0</span> selected</span>
+                                    <select id="moveStatus" class="border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+                                        <option value="Matched">Matched</option>
+                                        <option value="Mismatch">Mismatch</option>
+                                        <option value="Amount Mismatch">Amount Mismatch</option>
+                                        <option value="2B Only">2B Only</option>
+                                        <option value="Purchase Only">Purchase Only</option>
+                                    </select>
+                                    <button id="moveBtn" class="bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold px-3 py-1.5 rounded-lg">Move</button>
+                                </div>
+                                <button id="exportBtn" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium disabled:opacity-60">Export to Excel</button>
+                            </div>
+                        </div>
+
+                        <!-- Filters -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                            <select id="fStatus" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <option value="">All statuses</option>
+                                <option value="Matched">Matched</option>
+                                <option value="Mismatch">Mismatch</option>
+                                <option value="Amount Mismatch">Amount Mismatch</option>
+                                <option value="2B Only">2B Only</option>
+                                <option value="Purchase Only">Purchase Only</option>
+                            </select>
+                            <input id="fGstin" type="text" placeholder="Search GSTIN" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <input id="fInvoice" type="text" placeholder="Search Invoice No" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <select id="fPageSize" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <option value="25">25 per page</option>
+                                <option value="25">25 per page</option>
+                                <option value="50" selected>50 per page</option>
+                                <option value="100">100 per page</option>
+                                <option value="200">200 per page</option>
+                            </select>
+                            <button id="clearFilters" class="border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Clear filters</button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto w-full">
+                        <table class="w-full text-sm text-left text-slate-600">
+                            <thead class="text-xs text-slate-700 uppercase bg-slate-50 border-b border-slate-200">
+                                <tr>
+                                    <th scope="col" class="px-4 py-3 bg-slate-50"><input type="checkbox" id="selAll"></th>
+                                    <th scope="col" class="px-4 py-3 bg-slate-50">GSTIN</th>
+                                    <th scope="col" class="px-4 py-3 bg-slate-50">Vendor</th>
+                                    <th scope="col" class="px-4 py-3 bg-slate-50">Invoice No</th>
+                                    <th scope="col" class="px-4 py-3 bg-slate-50">Date</th>
+                                    <th scope="col" class="px-4 py-3 bg-slate-50 text-right">Taxable (Purchase)</th>
+                                    <th scope="col" class="px-4 py-3 bg-slate-50 text-right">Taxable (2B)</th>
+                                    <th scope="col" class="px-4 py-3 bg-slate-50 text-right">Purchase Tax</th>
+                                    <th scope="col" class="px-4 py-3 bg-slate-50 text-right">2B Tax</th>
+                                    <th scope="col" class="px-4 py-3 bg-slate-50 text-right">IGST Diff</th>
+                                    <th scope="col" class="px-4 py-3 bg-slate-50 text-right">CGST Diff</th>
+                                    <th scope="col" class="px-4 py-3 bg-slate-50 text-right">SGST Diff</th>
+                                    <th scope="col" class="px-4 py-3 bg-slate-50">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsTableBody"></tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="px-6 py-4 border-t border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <p id="pageInfo" class="text-sm text-slate-500"></p>
+                        <div id="pager" class="flex flex-wrap items-center gap-1"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+    // =====================================================================
+    // CONFIG
+    // Django backend runs on port 9001:  python manage.py runserver 9001
+    // If this page is served by Django itself (http://127.0.0.1:9001/), calls
+    // are same-origin. Otherwise they go to http://127.0.0.1:9001.
+    // =====================================================================
+    const BACKEND_URL = 'http://127.0.0.1:9001';
+    const API_BASE = (location.port === '9001') ? '' : BACKEND_URL;
+    const MAX_FILE_BYTES = 10 * 1024 * 1024;
+    const STATUSES = ['Matched', 'Mismatch', 'Amount Mismatch', 'Purchase Only', '2B Only'];
+    const STATUS_CLASS = {
+        'Matched': 'bg-emerald-100 text-emerald-800',
+        'Mismatch': 'bg-rose-100 text-rose-800',
+        'Amount Mismatch': 'bg-orange-100 text-orange-800',
+        'Purchase Only': 'bg-amber-100 text-amber-800',
+        '2B Only': 'bg-violet-100 text-violet-800'
+    };
+    const STATUS_LABEL = { 'Purchase Only': 'Missing in 2B', '2B Only': 'Missing in Purchase' };
+
+    // ---------------- state ----------------
+    const state = {
+        batch: localStorage.getItem('gst_batch_id') || null,
+        page: 1, pageSize: 50,
+        status: '', gstin: '', invoice: '',
+        totalPages: 1, totalRecords: 0,
+        selected: new Set(),
+        loadSeq: 0
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    class AuthError extends Error {}
+    class ApiError extends Error {
+        constructor(message, data, status) { super(message); this.data = data; this.status = status; }
+    }
+
+    // ---------------- helpers ----------------
+    function showError(message, details) {
+        $('errorMessage').textContent = message;
+        const d = $('errorDetails');
+        if (details) { d.textContent = typeof details === 'string' ? details : JSON.stringify(details, null, 2); d.classList.remove('hidden'); }
+        else { d.classList.add('hidden'); }
+        $('errorBanner').classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    function clearError() { $('errorBanner').classList.add('hidden'); }
+    $('errorClose').addEventListener('click', clearError);
+
+    let toastTimer;
+    function toast(msg) {
+        const t = $('toast'); t.textContent = msg; t.classList.remove('hidden');
+        clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), 3000);
+    }
+
+    function fmtMoney(v) {
+        if (v === null || v === undefined) return '-';
+        return '₹' + Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function sumTax(a, b, c) {
+        if (a == null && b == null && c == null) return null;
+        return (a || 0) + (b || 0) + (c || 0);
+    }
+    function diffCell(v) {
+        if (v === null || v === undefined) return '<span class="text-slate-400">-</span>';
+        const zero = Math.abs(v) < 0.005;
+        return `<span class="${zero ? 'text-slate-500' : 'text-rose-600 font-semibold'}">${fmtMoney(v)}</span>`;
+    }
+    function fmtDate(d) {
+        if (!d) return '-';
+        const p = d.split('-');
+        return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : d;
+    }
+
+    // Generic API caller. Handles session expiry (login_required redirect), non-JSON, and success:false.
+    async function api(path, opts = {}, { raw = false, skipAuthRedirect = false } = {}) {
+        let res;
+        try {
+            res = await fetch(API_BASE + path, { credentials: 'include', redirect: 'manual', ...opts });
+        } catch (e) {
+            throw new Error('Cannot reach backend at ' + (API_BASE || location.origin) + '. Is Django running on port 9001?');
+        }
+        if (!skipAuthRedirect && (res.type === 'opaqueredirect' || res.status === 401 || res.status === 403 || res.status === 302)) {
+            throw new AuthError('Session expired. Please login again.');
+        }
+        if (raw && res.ok) return res;
+
+        let data = null;
+        try { data = await res.json(); }
+        catch (e) { throw new ApiError('Server returned an unexpected response (HTTP ' + res.status + ').', null, res.status); }
+
+        if (!res.ok || data.success === false) {
+            throw new ApiError(data.message || data.error || ('Request failed (HTTP ' + res.status + ')'), data, res.status);
+        }
+        return data;
+    }
+
+    function handleError(e, fallback) {
+        if (e instanceof AuthError) { goLogin(e.message); return; }
+        if (e instanceof ApiError) {
+            const extra = e.data && (e.data.error || e.data.details || e.data.file)
+                ? { file: e.data.file, error: e.data.error, details: e.data.details } : null;
+            showError(e.message, extra);
+        } else {
+            showError(e.message || fallback || 'Something went wrong');
+        }
+    }
+
+    // ---------------- views ----------------
+    function goLogin(msg) {
+        $('appView').classList.add('hidden');
+        $('loginView').classList.remove('hidden');
+        $('navRight').classList.add('hidden'); $('navRight').classList.remove('flex');
+        if (msg) { const le = $('loginError'); le.textContent = msg; le.classList.remove('hidden'); }
+    }
+    function goApp(username) {
+        $('loginView').classList.add('hidden');
+        $('appView').classList.remove('hidden');
+        $('navRight').classList.remove('hidden'); $('navRight').classList.add('flex');
+        if (username) $('userChip').textContent = username;
+    }
+    function setBatch(id) {
+        state.batch = id;
+        if (id) localStorage.setItem('gst_batch_id', id); else localStorage.removeItem('gst_batch_id');
+        const chip = $('batchChip');
+        if (id) { chip.textContent = id; chip.classList.remove('hidden'); $('newReconBtn').classList.remove('hidden'); }
+        else { chip.classList.add('hidden'); $('newReconBtn').classList.add('hidden'); }
+    }
+
+    // ---------------- login ----------------
+    $('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = $('loginBtn'); btn.disabled = true; btn.textContent = 'Signing in...';
+        $('loginError').classList.add('hidden');
+        try {
+            const data = await api('/api/login/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: $('username').value.trim(), password: $('password').value })
+            }, { skipAuthRedirect: true });
+            sessionStorage.setItem('gst_user', data.username);
+            goApp(data.username);
+            clearError();
+            if (state.batch) openBatch(state.batch, true);
+        } catch (err) {
+            const le = $('loginError'); le.textContent = err.message; le.classList.remove('hidden');
+        } finally {
+            btn.disabled = false; btn.textContent = 'Login';
+        }
+    });
+
+    // ---------------- file pickers ----------------
+    function bindFile(inputId, labelId) {
+        $(inputId).addEventListener('change', function (e) {
+            const f = e.target.files[0];
+            const el = $(labelId);
+            if (f) {
+                if (f.size > MAX_FILE_BYTES) {
+                    showError(f.name + ' is larger than 10MB.');
+                    e.target.value = ''; el.classList.add('hidden'); return;
+                }
+                el.textContent = f.name; el.classList.remove('hidden');
+            } else { el.classList.add('hidden'); }
+        });
+    }
+    bindFile('purchaseFile', 'purchaseFileName');
+    bindFile('twoBFile', 'twoBFileName');
+
+    // ---------------- run reconciliation ----------------
+    function setBusy(busy, text) {
+        const form = $('reconciliationForm');
+        form.style.opacity = busy ? '0.5' : '1';
+        form.style.pointerEvents = busy ? 'none' : 'auto';
+        $('submitBtn').disabled = busy;
+        const l = $('loadingState');
+        if (busy) { l.classList.remove('hidden'); l.classList.add('flex'); $('loadingText').textContent = text || 'Processing...'; }
+        else { l.classList.add('hidden'); l.classList.remove('flex'); }
+    }
+
+    $('reconciliationForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        clearError();
+        const pf = $('purchaseFile').files[0];
+        const tf = $('twoBFile').files[0];
+        if (!pf || !tf) { showError('Please select both files.'); return; }
+
+        $('resultsSection').classList.add('hidden');
+        setBusy(true, 'Uploading & validating files...');
+        try {
+            const fd = new FormData();
+            fd.append('purchase_file', pf);
+            fd.append('two_b_file', tf);
+            const up = await api('/api/upload/', { method: 'POST', body: fd });
+
+            $('loadingText').textContent = 'Running reconciliation on ' + up.batch_id + '... (large files can take a while)';
+            await api('/api/reconciliation/start/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ batch_id: up.batch_id })
+            });
+
+            setBatch(up.batch_id);
+            resetFilters(false);
+            $('reconciliationForm').classList.add('hidden');
+            $('resultsSection').classList.remove('hidden');
+            await refreshAll();
+            toast('Reconciliation completed');
+        } catch (err) {
+            handleError(err, 'An error occurred while processing the files.');
+        } finally {
+            setBusy(false);
+        }
+    });
+
+    // Open an already-reconciled batch
+    async function openBatch(id, silent) {
+        if (!id) return;
+        clearError();
+        setBatch(id);
+        resetFilters(false);
+        $('reconciliationForm').classList.add('hidden');
+        $('resultsSection').classList.remove('hidden');
+        try { await refreshAll(); }
+        catch (err) {
+            // Batch invalid -> go back to upload form
+            $('resultsSection').classList.add('hidden');
+            $('reconciliationForm').classList.remove('hidden');
+            setBatch(null);
+            if (!silent || !(err instanceof ApiError)) handleError(err);
+        }
+    }
+    $('openBatchBtn').addEventListener('click', () => openBatch($('openBatchInput').value.trim()));
+    $('newReconBtn').addEventListener('click', () => {
+        $('reconciliationForm').classList.remove('hidden');
+        $('resultsSection').classList.add('hidden');
+        setBatch(null); clearError();
+    });
+
+    // ---------------- results: query, summary, table ----------------
+    function buildQuery(extra = {}) {
+        const p = new URLSearchParams({ batch_id: state.batch });
+        if (state.status) p.set('status', state.status);
+        if (state.gstin) p.set('gstin', state.gstin);
+        if (state.invoice) p.set('invoice_number', state.invoice);
+        Object.entries(extra).forEach(([k, v]) => p.set(k, v));
+        return p.toString();
+    }
+
+    async function loadSummary() {
+        const base = (status) => {
+            const p = new URLSearchParams({ batch_id: state.batch, page: 1, page_size: 1 });
+            if (status) p.set('status', status);
+            return api('/api/reconciliation/results/?' + p.toString());
+        };
+        const [total, ...parts] = await Promise.all([base(''), ...STATUSES.map(base)]);
+        $('val-total').textContent = total.total_records.toLocaleString('en-IN');
+        STATUSES.forEach((s, i) => { $('val-' + s).textContent = parts[i].total_records.toLocaleString('en-IN'); });
+    }
+
+    async function loadResults() {
+        const seq = ++state.loadSeq;
+        const tbody = $('resultsTableBody');
+        tbody.innerHTML = '<tr><td colspan="13" class="px-6 py-10 text-center text-slate-400">Loading...</td></tr>';
+        let data;
+        try {
+            data = await api('/api/reconciliation/results/?' + buildQuery({ page: state.page, page_size: state.pageSize }));
+        } catch (err) {
+            // Backend returns 400 when the page is out of range (e.g. after filtering) -> clamp and retry once
+            if (err instanceof ApiError && err.data && err.data.total_pages && state.page > err.data.total_pages) {
+                state.page = Math.max(1, err.data.total_pages);
+                return loadResults();
+            }
+            tbody.innerHTML = '<tr><td colspan="13" class="px-6 py-10 text-center text-rose-500">Failed to load results.</td></tr>';
+            throw err;
+        }
+        if (seq !== state.loadSeq) return; // stale response (user typed/clicked again)
+
+        state.totalPages = data.total_pages;
+        state.totalRecords = data.total_records;
+        state.selected.clear();
+        renderRows(data.results);
+        renderPager(data);
+        updateBulkBar();
+    }
+
+    function renderRows(rows) {
+        const tbody = $('resultsTableBody');
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="13" class="px-6 py-10 text-center text-slate-400">No records found.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = rows.map(r => {
+            const cls = STATUS_CLASS[r.current_status] || 'bg-slate-100 text-slate-700';
+            const label = STATUS_LABEL[r.current_status] || r.current_status;
+            const manual = r.manual_status ? ` <span title="Moved manually from ${esc(r.original_status)}" class="ml-1 text-xs text-indigo-500">✎</span>` : '';
+            const pTax = sumTax(r.purchase_igst, r.purchase_cgst, r.purchase_sgst);
+            const bTax = sumTax(r.two_b_igst, r.two_b_cgst, r.two_b_sgst);
+            return `
+            <tr class="border-b border-slate-100 hover:bg-slate-50">
+                <td class="px-4 py-3"><input type="checkbox" class="rowSel" data-id="${r.id}"></td>
+                <td class="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">${esc(r.gstin)}</td>
+                <td class="px-4 py-3">${esc(r.vendor_name) || '-'}</td>
+                <td class="px-4 py-3 whitespace-nowrap">${esc(r.invoice_number)}</td>
+                <td class="px-4 py-3 whitespace-nowrap">${fmtDate(r.invoice_date)}</td>
+                <td class="px-4 py-3 text-right whitespace-nowrap">${fmtMoney(r.purchase_taxable_value)}</td>
+                <td class="px-4 py-3 text-right whitespace-nowrap">${fmtMoney(r.two_b_taxable_value)}</td>
+                <td class="px-4 py-3 text-right whitespace-nowrap" title="IGST ${fmtMoney(r.purchase_igst)} | CGST ${fmtMoney(r.purchase_cgst)} | SGST ${fmtMoney(r.purchase_sgst)}">${fmtMoney(pTax)}</td>
+                <td class="px-4 py-3 text-right whitespace-nowrap" title="IGST ${fmtMoney(r.two_b_igst)} | CGST ${fmtMoney(r.two_b_cgst)} | SGST ${fmtMoney(r.two_b_sgst)}">${fmtMoney(bTax)}</td>
+                <td class="px-4 py-3 text-right whitespace-nowrap">${diffCell(r.igst_difference)}</td>
+                <td class="px-4 py-3 text-right whitespace-nowrap">${diffCell(r.cgst_difference)}</td>
+                <td class="px-4 py-3 text-right whitespace-nowrap">${diffCell(r.sgst_difference)}</td>
+                <td class="px-4 py-3 whitespace-nowrap"><span class="px-2.5 py-1 rounded-full text-xs font-semibold ${cls}">${esc(label)}</span>${manual}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    function renderPager(d) {
+        const from = d.total_records === 0 ? 0 : (d.page - 1) * d.page_size + 1;
+        const to = (d.page - 1) * d.page_size + d.count;
+        $('pageInfo').textContent = `Showing ${from.toLocaleString('en-IN')}–${to.toLocaleString('en-IN')} of ${d.total_records.toLocaleString('en-IN')} records`;
+
+        const cur = d.page, last = d.total_pages;
+        const btn = (label, page, { disabled = false, active = false } = {}) =>
+            `<button data-page="${page}" ${disabled ? 'disabled' : ''} class="min-w-[2.25rem] px-3 py-1.5 text-sm rounded-lg border ${active ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'} disabled:opacity-40 disabled:cursor-not-allowed">${label}</button>`;
+
+        const pages = new Set([1, last, cur - 2, cur - 1, cur, cur + 1, cur + 2]);
+        const list = [...pages].filter(p => p >= 1 && p <= last).sort((a, b) => a - b);
+
+        let html = btn('«', 1, { disabled: cur === 1 }) + btn('‹ Prev', cur - 1, { disabled: cur === 1 });
+        let prev = 0;
+        list.forEach(p => {
+            if (p - prev > 1) html += '<span class="px-1 text-slate-400">…</span>';
+            html += btn(p, p, { active: p === cur });
+            prev = p;
+        });
+        html += btn('Next ›', cur + 1, { disabled: cur === last }) + btn('»', last, { disabled: cur === last });
+        $('pager').innerHTML = html;
+    }
+
+    $('pager').addEventListener('click', (e) => {
+        const b = e.target.closest('button[data-page]');
+        if (!b || b.disabled) return;
+        state.page = parseInt(b.dataset.page, 10);
+        loadResults().catch(handleError);
+        $('resultsTableBody').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    async function refreshAll() {
+        await Promise.all([loadSummary(), loadResults()]);
+    }
+
+    // ---------------- filters ----------------
+    function resetFilters(reload = true) {
+        state.page = 1; state.status = ''; state.gstin = ''; state.invoice = '';
+        $('fStatus').value = ''; $('fGstin').value = ''; $('fInvoice').value = '';
+        highlightCard();
+        if (reload && state.batch) loadResults().catch(handleError);
+    }
+    function highlightCard() {
+        document.querySelectorAll('#summaryCards .card').forEach(c => {
+            c.classList.toggle('ring-2', c.dataset.status === state.status && state.status !== '');
+            c.classList.toggle('ring-indigo-500', c.dataset.status === state.status && state.status !== '');
+        });
+    }
+    let debounce;
+    function applyFiltersDebounced() {
+        clearTimeout(debounce);
+        debounce = setTimeout(() => {
+            state.gstin = $('fGstin').value.trim();
+            state.invoice = $('fInvoice').value.trim();
+            state.page = 1;
+            loadResults().catch(handleError);
+        }, 400);
+    }
+    $('fGstin').addEventListener('input', applyFiltersDebounced);
+    $('fInvoice').addEventListener('input', applyFiltersDebounced);
+    $('fStatus').addEventListener('change', (e) => {
+        state.status = e.target.value; state.page = 1; highlightCard();
+        loadResults().catch(handleError);
+    });
+    $('fPageSize').addEventListener('change', (e) => {
+        state.pageSize = parseInt(e.target.value, 10); state.page = 1;
+        loadResults().catch(handleError);
+    });
+    $('clearFilters').addEventListener('click', () => resetFilters(true));
+    $('summaryCards').addEventListener('click', (e) => {
+        const c = e.target.closest('.card'); if (!c) return;
+        state.status = c.dataset.status; $('fStatus').value = state.status; state.page = 1;
+        highlightCard();
+        loadResults().catch(handleError);
+    });
+
+    // ---------------- selection + bulk move ----------------
+    function updateBulkBar() {
+        const n = state.selected.size;
+        $('selCount').textContent = n;
+        const bar = $('bulkBar');
+        bar.classList.toggle('hidden', n === 0); bar.classList.toggle('flex', n > 0);
+        const boxes = document.querySelectorAll('.rowSel');
+        $('selAll').checked = boxes.length > 0 && n === boxes.length;
+    }
+    $('resultsTableBody').addEventListener('change', (e) => {
+        if (!e.target.classList.contains('rowSel')) return;
+        const id = parseInt(e.target.dataset.id, 10);
+        e.target.checked ? state.selected.add(id) : state.selected.delete(id);
+        updateBulkBar();
+    });
+    $('selAll').addEventListener('change', (e) => {
+        document.querySelectorAll('.rowSel').forEach(cb => {
+            cb.checked = e.target.checked;
+            const id = parseInt(cb.dataset.id, 10);
+            e.target.checked ? state.selected.add(id) : state.selected.delete(id);
+        });
+        updateBulkBar();
+    });
+    $('moveBtn').addEventListener('click', async () => {
+        const ids = [...state.selected];
+        const newStatus = $('moveStatus').value;
+        if (!ids.length) return;
+        if (!confirm(`Move ${ids.length} record(s) to "${newStatus}"?`)) return;
+        const btn = $('moveBtn'); btn.disabled = true;
+        try {
+            await api('/api/reconciliation/move/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ result_ids: ids, new_status: newStatus })
+            });
+            toast(`${ids.length} record(s) moved to ${newStatus}`);
+            await refreshAll();
+        } catch (err) { handleError(err); }
+        finally { btn.disabled = false; }
+    });
+
+    // ---------------- export (respects current filters) ----------------
+    $('exportBtn').addEventListener('click', async () => {
+        const btn = $('exportBtn'); btn.disabled = true; const old = btn.textContent; btn.textContent = 'Exporting...';
+        try {
+            const res = await api('/api/reconciliation/export/?' + buildQuery(), {}, { raw: true });
+            const blob = await res.blob();
+            const cd = res.headers.get('Content-Disposition') || '';
+            const m = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+            const name = m ? decodeURIComponent(m[1]) : `${state.batch}.xlsx`;
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = name;
+            document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+        } catch (err) { handleError(err); }
+        finally { btn.disabled = false; btn.textContent = old; }
+    });
+
+    // ---------------- init: check existing session ----------------
+    (async function init() {
+        try {
+            // Any login_required endpoint works as a session check
+            await api('/api/master/');
+            goApp(sessionStorage.getItem('gst_user') || '');
+            if (state.batch) openBatch(state.batch, true);
+        } catch (err) {
+            if (err instanceof AuthError) goLogin();
+            else if (err instanceof ApiError) { // JSON came back => session is valid (e.g. no master config yet)
+                goApp(sessionStorage.getItem('gst_user') || '');
+                if (state.batch) openBatch(state.batch, true);
+            } else { goLogin(); showError(err.message); }
+        }
+    })();
+    </script>
+</body>
+</html>

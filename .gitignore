@@ -1,0 +1,32 @@
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Django
+db.sqlite3
+*.log
+
+# Logs
+logs/
+
+# Uploaded files
+media/
+
+# Input Excel files
+input_file/
+
+# Environment variables
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
